@@ -48,7 +48,7 @@ func ({{.InitialCharFileName}} {{.FileNameToCapitalize}}RepositoryImpl) FindByID
 
 	//change param id in where clause
 	var {{.TableName}} {{.TablePackageName}}.{{.TableNameCapitalize}}
-	err := {{.InitialCharFileName}}.Db.Model(&{{.TablePackageName}}.{{.TableNameCapitalize}}{}).Where("id = ?", id).First(&{{.TableName}}).Error
+	err := {{.InitialCharFileName}}.Db.Model(&{{.TablePackageName}}.{{.TableNameCapitalize}}{}).Where("id_{{.TableName}} = ?", id).First(&{{.TableName}}).Error
 	if err != nil {
 		return {{.TableName}}, err
 	}
@@ -76,7 +76,7 @@ func ({{.InitialCharFileName}} {{.FileNameToCapitalize}}RepositoryImpl) Update({
 	}
 	*/
 	//Where("id = ?", {{.TableName}}.Id) change with param you want 
-	err := {{.InitialCharFileName}}.Db.Model(&{{.TablePackageName}}.{{.TableNameCapitalize}}{}).Where("id = ?", {{.TableName}}.Id).Updates({{.TableName}}).Error
+	err := {{.InitialCharFileName}}.Db.Model(&{{.TablePackageName}}.{{.TableNameCapitalize}}{}).Where("id_{{.TableName}} = ?", {{.TableName}}.Id).Updates({{.TableName}}).Error
 	if err != nil {
 		return {{.TableName}}, err
 	}
@@ -84,7 +84,7 @@ func ({{.InitialCharFileName}} {{.FileNameToCapitalize}}RepositoryImpl) Update({
 }
 
 func ({{.InitialCharFileName}} {{.FileNameToCapitalize}}RepositoryImpl) Delete(id string) error {
-	err := {{.InitialCharFileName}}.Db.Model(&{{.TablePackageName}}.{{.TableNameCapitalize}}{}).Where("id = ?", id).Delete(&{{.TablePackageName}}.{{.TableNameCapitalize}}{}).Error
+	err := {{.InitialCharFileName}}.Db.Model(&{{.TablePackageName}}.{{.TableNameCapitalize}}{}).Where("id_{{.TableName}} = ?", id).Delete(&{{.TablePackageName}}.{{.TableNameCapitalize}}{}).Error
 	if err != nil {
 		return err
 	}
@@ -178,6 +178,21 @@ func (controller *{{.FileNameToCapitalize}}Controller) Delete(ctx *gin.Context) 
 }
 `
 
+var route_tmpl = `
+	package package_name //replace "package_name"
+
+	import "github.com/gin-gonic-gin"
+
+	func {{.FileNameToCapitalize}}Route(r *gin.Engine) {
+		{{.FileName}} := r.Group("/{{.FileName}}")
+		{{.FileName}}.POST("/create",{{.FilenameToCapitalize}}Controller.Create)
+		{{.FileName}}.GET("/all",{{.FilenameToCapitalize}}Controller.ReadAll)
+		{{.FileName}}.GET("/find/:id",{{.FilenameToCapitalize}}Controller.FindByID)
+		{{.FileName}}.PATCH("/patch",{{.FilenameToCapitalize}}Controller.Update)
+		{{.FileName}}.DELETE("/delete/:id",FilenameToCapitalize}}Controller.Delete)
+	}
+`
+
 type ComponenName struct {
 	FileName             string
 	FileNameToCapitalize string
@@ -191,6 +206,7 @@ type ComponenName struct {
 
 func Generator() {
 	if len(os.Args) < 3 {
+		fmt.Println("Warning : Single Word Use lowercase, Multi Word Use CamelCase")
 		fmt.Println("Usage: gogen [file name] [table package] [table name]")
 		fmt.Println("Remember : Remember To Move your generated file to absolute directory")
 		os.Exit(1)
@@ -217,6 +233,7 @@ func Generator() {
 		InitialCharTableName: tableName[0:1],
 	}
 
+	//REPOSITORY GENERATOR
 	//Compile Template
 	tmpl, err := template.New("repository").Parse(repository_tmpl)
 	// tmpl, err := template.ParseFiles("repository_tmpl.tpl")
@@ -243,8 +260,8 @@ func Generator() {
 
 	fmt.Printf("%s Repository generated to %s.\n", fName, outputFilePath)
 
+	//======================================================================
 	//CONTROLLER GENERATOR
-
 	tmpl, err = template.New("controller").Parse(controller_tmpl)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -267,8 +284,34 @@ func Generator() {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-
 	fmt.Printf("%s Controller generated to %s.\n", fName, outputFilePath)
+
+	//======================================================================
+	//ROUTE GENERATOR
+	tmpl, err = template.New("controller").Parse(controller_tmpl)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+
+	//buat file baru untuk hasil generate
+	fName = strings.ToLower(fileName) + ".controller.go"
+	outputFilePath = filepath.Join(outDir, fName)
+
+	file, err = os.Create(outputFilePath)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	//render template ke file baru
+	if err := tmpl.Execute(file, data); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	fmt.Printf("%s Routes generated to %s.\n", fName, outputFilePath)
+	//======================================================================
 	fmt.Println(">> ===========<<>>========== <<")
 	fmt.Println("Remember : Remember To Move your generated file to absolute directory")
 }
